@@ -1,16 +1,27 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
-  <head>
-    <meta charset="utf-8">
-    <title>Flask Tutorial</title>
-  </head>
-  <body>
-    {% extends "template.html" %}
-    {% block content %}
-    
-    <h1> My First Try Using Flask </h1>
-    <p> Flask is Fun </p>
-    
-    {% endblock %}
-  </body>
+
+<head>
+  <meta charset="utf-8">
+  <title>Home</title>
+</head>
+
+<body>
+  {% extends "template.html" %}
+  {% block content %}
+  
+  <div class="container mt-4">
+
+    <h1> Welcome to Testing Relámpago </h1>
+    <p>Our team: We have high-level IT professionals.</p>
+    <p>Our history: More than 10 years providing technology services.</p>
+    <p>Our areas: We provide Testing, Scrum Master, Project Management and IT Consulting services.</p>
+
+    <a class="btn btn-primary" href="https://www.testingrelampago.com" target="_blank" role="button">Testing Relámpago</a>
+
+  </div>
+
+  {% endblock %}
+</body>
+
 </html>
