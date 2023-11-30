@@ -129,6 +129,7 @@ def deleteBeer(beerId):
     beers.remove(beer)
     return jsonify({'result': 'Beer deleted successfully'})
 
+# ----- We create a section to see the Dogecoin Price :)
 @app.route('/dogecoin')
 def dogecoinPrice():
     # ----- Fetch Dogecoin price data from CoinGecko
