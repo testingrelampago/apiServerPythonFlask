@@ -5,7 +5,13 @@
 # ----- http://127.0.0.1:5000/
 
 from flask import Flask, jsonify, render_template, send_from_directory, request
-import os
+import os, requests
+
+# ----- Here we add our Key's CoinGecko API key
+# ----- The CoinGecko API allows limited access without an API key
+COINGECKO_API_KEY = 'YOUR_API_KEY'
+DOGECOIN_ID = 'dogecoin'
+
 
 app = Flask(__name__)
 
@@ -122,6 +128,18 @@ def deleteBeer(beerId):
 
     beers.remove(beer)
     return jsonify({'result': 'Beer deleted successfully'})
+
+@app.route('/dogecoin')
+def dogecoinPrice():
+    # ----- Fetch Dogecoin price data from CoinGecko
+    url = f'https://api.coingecko.com/api/v3/simple/price?ids={DOGECOIN_ID}&vs_currencies=usd'
+    response = requests.get(url)
+    data = response.json()
+
+    # ----- Extract Dogecoin price
+    dogecoinPrice = data[DOGECOIN_ID]['usd']
+
+    return render_template('dogecoin.html', dogecoinPrice=dogecoinPrice)
 
 if __name__ == '__main__':
 # ----- Run the application on port 5000
