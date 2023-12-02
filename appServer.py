@@ -1,10 +1,15 @@
 # ----- Before the import, you should install Flask:
 # ----- pip install Flask
+# ----- pip install plotly
+# ----- pip install pandas
 # ----- For running the Web server:
 # ----- python app.py
 # ----- http://127.0.0.1:5000/
 
 from flask import Flask, jsonify, render_template, send_from_directory, request
+import plotly.express as px
+import pandas as pd
+import plotly.graph_objs as go
 import os, requests
 
 # ----- Here we add our Key's CoinGecko API key
@@ -141,6 +146,33 @@ def dogecoinPrice():
     dogecoinPrice = data[DOGECOIN_ID]['usd']
 
     return render_template('dogecoin.html', dogecoinPrice=dogecoinPrice)
+
+# ----- We create a section to see the Historical Dogecoin Price :)
+@app.route('/dogecoinHistorical')
+def dogecoinHistorical():
+    try:
+        # ----- Fetch historical Dogecoin price data from CoinGecko
+        # ----- https://www.coingecko.com/api/documentation
+        url = f'https://api.coingecko.com/api/v3/coins/{DOGECOIN_ID}/market_chart?vs_currency=usd&days=7'
+        response = requests.get(url)
+        # ----- Raise an error for bad responses (4xx or 5xx)
+        response.raise_for_status()
+        data = response.json()
+
+        # Extract labels (timestamps) and prices from the response
+        labels = [point[0] for point in data['prices']]
+        prices = [point[1] for point in data['prices']]
+
+        # Create a Plotly line chart
+        trace = go.Scatter(x=labels, y=prices, mode='lines+markers', name='Dogecoin Prices (USD)',line=dict(color='blue'))
+        layout = go.Layout(title='Dogecoin Historical Prices', xaxis=dict(title='Date (Soon)'), yaxis=dict(title='Price (USD)'))
+        chart = go.Figure(data=[trace], layout=layout)
+        chart_html = chart.to_html(full_html=False)
+
+        return render_template('dogecoinHistorical.html', chart_html=chart_html)
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f'Error fetching historical prices: {e}')
+        return jsonify({'error': 'Failed to fetch historical prices'}), 500  # Return 500 Internal Server Error
 
 if __name__ == '__main__':
 # ----- Run the application on port 5000
