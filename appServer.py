@@ -2,6 +2,7 @@
 # ----- pip install Flask
 # ----- pip install plotly
 # ----- pip install pandas
+# ----- pip install firebase-admin
 # ----- For running the Web server:
 # ----- python app.py
 # ----- http://127.0.0.1:5000/
@@ -11,19 +12,30 @@ import plotly.express as px
 import pandas as pd
 import plotly.graph_objs as go
 import os, requests
+import firebase_admin
+from firebase_admin import credentials, db
+
+# ----- Initialize and Connect Firebase
+# ----- Here you need your Certificate of Firebase ... so remember to change to your json and path ...
+# ----- otherwise this will fail :(
+cred = credentials.Certificate('path/hello.json')
+firebase_admin.initialize_app(cred, {
+    # ----- Here you need the databaseURL of your project in Firebase ...
+    # ----- otherwise this also will fail :(
+    'databaseURL': 'https://hello.firebaseio.com/'
+})
 
 # ----- Here we add our Key's CoinGecko API key
 # ----- The CoinGecko API allows limited access without an API key
 COINGECKO_API_KEY = 'YOUR_API_KEY'
 DOGECOIN_ID = 'dogecoin'
 
-
 app = Flask(__name__)
 
 # ----- Data (Of course generated with ChatGPT)
 # ----- Remember when you turn off the server, all the beers that you added desapear
 
-beers = [
+beersStatic = [
   {
     "id": 1,
     "name": "Crafty IPA",
@@ -83,37 +95,38 @@ def favicon():
 def logo():
     return send_from_directory(os.path.join(app.root_path, 'static'), 'logo.png', mimetype='image/png')
 
+# ----- Endpoints Beer Static
 # ----- Endpoint to get all beers
-@app.route('/beers', methods=['GET'])
-def getBeers():
-    return jsonify({'beers': beers})
+@app.route('/beersStatic', methods=['GET'])
+def getBeersStatic():
+    return jsonify({'beersStatic': beersStatic})
 
 # ----- Endpoint to get a specific beer by ID
-@app.route('/beers/<int:beerId>', methods=['GET'])
-def getBeer(beerId):
-    beer = next((beer for beer in beers if beer['id'] == beerId), None)
+@app.route('/beersStatic/<int:beerId>', methods=['GET'])
+def getBeerStatic(beerId):
+    beer = next((beer for beer in beersStatic if beer['id'] == beerId), None)
     if beer is None:
         return jsonify({'error': 'Beer not found'}), 404
     return jsonify({'beer': beer})
 
 # ----- Endpoint to create a new Beer
-@app.route('/beers', methods=['POST'])
-def createBeer():
+@app.route('/beersStatic', methods=['POST'])
+def createBeerStatic():
     if not request.json or 'name' not in request.json or 'description' not in request.json:
         return jsonify({'error': 'Name and Description are required'}), 400
 
     newBeer = {
-        'id': beers[-1]['id'] + 1,
+        'id': beersStatic[-1]['id'] + 1,
         'name': request.json['name'],
         'description': request.json['description']
     }
-    beers.append(newBeer)
+    beersStatic.append(newBeer)
     return jsonify({'beer': newBeer}), 201
 
 # ----- Endpoint to update a Beer by ID
-@app.route('/beers/<int:beerId>', methods=['PUT'])
-def updateBeer(beerId):
-    beer = next((beer for beer in beers if beer['id'] == beerId), None)
+@app.route('/beersStatic/<int:beerId>', methods=['PUT'])
+def updateBeerStatic(beerId):
+    beer = next((beer for beer in beersStatic if beer['id'] == beerId), None)
     if beer is None:
         return jsonify({'error': 'Beer not found'}), 404
 
@@ -125,13 +138,91 @@ def updateBeer(beerId):
     return jsonify({'beer': beer})
 
 # ----- Endpoint to delete a Beer by ID
-@app.route('/beers/<int:beerId>', methods=['DELETE'])
-def deleteBeer(beerId):
-    beer = next((beer for beer in beers if beer['id'] == beerId), None)
+@app.route('/beersStatic/<int:beerId>', methods=['DELETE'])
+def deleteBeerStatic(beerId):
+    beer = next((beer for beer in beersStatic if beer['id'] == beerId), None)
     if beer is None:
         return jsonify({'error': 'Beer not found'}), 404
 
-    beers.remove(beer)
+    beersStatic.remove(beer)
+    return jsonify({'result': 'Beer deleted successfully'})
+
+# ----- Endpoint to get all beers from Firebase
+@app.route('/beersFirebase', methods=['GET'])
+def getBeersFirebase():
+    # ----- Fetch beers data from Firebase Realtime Database
+    beersRef = db.reference('/beers')
+    beersData = beersRef.get()
+
+    # ----- Transform the data to the desired JSON format
+    formattedBeers = [{'id': key, 'name': value['name'], 'description': value['description']} for key, value in beersData.items()]
+
+    return jsonify({'beers': formattedBeers})
+
+# ----- Endpoint to create a new beer in Firebase
+@app.route('/beersFirebase', methods=['POST'])
+def createBeerFirebase():
+    if not request.json or 'name' not in request.json or 'description' not in request.json:
+        return jsonify({'error': 'Name and Description are required'}), 400
+
+    newBeer = {
+        'name': request.json['name'],
+        'description': request.json['description']
+    }
+
+    # ----- Add the new beer to Firebase
+    beersRef = db.reference('/beers')
+    newBeerRef = beersRef.push(newBeer)
+
+    # ----- Get the auto-generated ID from Firebase and update it in the beer data
+    newBeer['id'] = newBeerRef.key
+
+    return jsonify({'beer': newBeer}), 201
+
+# ----- Endpoint to get a specific beer by ID from Firebase
+@app.route('/beersFirebase/<beerId>', methods=['GET'])
+def getBeerFromFirebase(beerId):
+    
+    # ----- Fetch beer data from Firebase Realtime Database
+    beerRef = db.reference('/beers').child(str(beerId))
+    beerData = beerRef.get()
+
+    if beerData is None:
+        return jsonify({'error': 'Beer not found'}), 404
+
+    return jsonify({'beer': beerData})
+
+# ----- Endpoint to update a Beer in Firebase by ID
+@app.route('/beersFirebase/<beerId>', methods=['PUT'])
+def updateBeerFirebase(beerId):
+    
+    beerRef = db.reference('/beers').child(str(beerId))
+    beerData = beerRef.get()
+
+    if beerData is None:
+        return jsonify({'error': 'Beer not found'}), 404
+
+    if 'name' in request.json:
+        beerData['name'] = request.json['name']
+    if 'description' in request.json:
+        beerData['description'] = request.json['description']
+
+    beerRef.set(beerData)
+
+    return jsonify({'beer': beerData})
+
+# ----- Endpoint to delete a Beer from Firebase by ID
+@app.route('/beersFirebase/<beerId>', methods=['DELETE'])
+def deleteBeerFromFirebase(beerId):
+
+    beerRef = db.reference('/beers').child(str(beerId))
+    beerData = beerRef.get()
+
+    if beerData is None:
+        return jsonify({'error': 'Beer not found'}), 404
+
+    beerRef.delete()
+
     return jsonify({'result': 'Beer deleted successfully'})
 
 # ----- We create a section to see the Dogecoin Price :)
@@ -159,11 +250,11 @@ def dogecoinHistorical():
         response.raise_for_status()
         data = response.json()
 
-        # Extract labels (timestamps) and prices from the response
+        # ----- Extract labels (timestamps) and prices from the response
         labels = [point[0] for point in data['prices']]
         prices = [point[1] for point in data['prices']]
 
-        # Create a Plotly line chart
+        # ----- Create a Plotly line chart
         trace = go.Scatter(x=labels, y=prices, mode='lines+markers', name='Dogecoin Prices (USD)',line=dict(color='blue'))
         layout = go.Layout(title='Dogecoin Historical Prices', xaxis=dict(title='Date (Soon)'), yaxis=dict(title='Price (USD)'))
         chart = go.Figure(data=[trace], layout=layout)
